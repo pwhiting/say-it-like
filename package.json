@@ -1,0 +1,9 @@
+{
+  "name": "say-it-like",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A family voice-acting party game judged by an AI that listens.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.mjs" }
+}

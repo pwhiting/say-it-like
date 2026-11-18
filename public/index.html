@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Say It Like</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>Say It Like</h1>
+    <div class="row micbar">
+      <label for="mic">🎤</label>
+      <select id="mic"></select>
+      <div class="meter"><div id="level"></div></div>
+    </div>
+    <p id="mic-msg" class="msg"></p>
+
+    <section id="setup">
+      <label>Player Names (one per line - include as many as are playing)
+        <textarea id="names" rows="5"></textarea>
+      </label>
+      <label>Difficulty
+        <select id="difficulty">
+          <option value="easy">Easy (kids)</option>
+          <option value="medium" selected>Medium</option>
+          <option value="actor">Actor</option>
+        </select>
+      </label>
+      <label>Rounds <input id="rounds" type="number" min="1" max="20" value="5"></label>
+      <button id="start" class="primary">Start</button>
+      <p id="setup-msg" class="msg"></p>
+    </section>
+
+    <section id="round" hidden>
+      <p class="muted" id="round-label"></p>
+      <div class="card">
+        <p class="say">Say <q id="line"></q></p>
+        <p class="style" id="style"></p>
+      </div>
+      <div class="row" id="prompt-tools">
+        <button id="read">🔊 Read it</button>
+        <button id="shuffle">🎲 New prompt</button>
+        <details id="custom">
+          <summary>Write your own</summary>
+          <label>Line <input id="c-line" maxlength="200"></label>
+          <label>Mood <input id="c-mood" maxlength="60" placeholder="e.g. sleepy"></label>
+          <label>Character <input id="c-character" maxlength="80" placeholder="e.g. cowboy"></label>
+          <button id="c-use">Use this</button>
+        </details>
+      </div>
+
+      <h2 id="turn"></h2>
+      <div class="row">
+        <button id="rec" class="primary big">● Record</button>
+        <span id="timer" class="muted"></span>
+      </div>
+      <p id="round-msg" class="msg"></p>
+    </section>
+
+    <section id="results" hidden>
+      <h2 id="results-title"></h2>
+      <p id="banner" class="banner" hidden></p>
+      <p id="waiting" class="muted" hidden>Scores are revealed when everyone has been judged…</p>
+      <div id="result-cards"></div>
+      <h3>Scoreboard</h3>
+      <table id="board"></table>
+      <button id="next" class="primary" disabled>Next round</button>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

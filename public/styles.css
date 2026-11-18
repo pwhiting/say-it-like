@@ -1,0 +1,68 @@
+:root {
+  --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b6760; --card: #ffffff; --line: #e3e0da;
+  --accent: #c2410c; --accent-fg: #ffffff; --bar: #ea580c; --err: #b91c1c;
+  --win: #15803d; --win-bg: #ecfdf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171614; --fg: #f1efea; --muted: #a29d94; --card: #22211e; --line: #3a3833;
+    --accent: #f97316; --accent-fg: #1d1c1a; --bar: #fb923c; --err: #f87171;
+    --win: #4ade80; --win-bg: #12301f;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 18px/1.5 system-ui, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { margin: 0 0 16px; }
+label { display: block; margin: 0 0 12px; font-weight: 600; }
+textarea, input { display: block; width: 100%; margin-top: 4px; padding: 8px; font: inherit;
+  color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+#rounds { width: 6em; }
+#difficulty { display: block; margin-top: 4px; }
+button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--fg); cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+button.big { font-size: 1.3rem; padding: 14px 28px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.muted { color: var(--muted); }
+.msg { color: var(--err); min-height: 1.5em; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 8px 0; }
+.say { font-size: 1.6rem; font-weight: 700; margin: 0; }
+.style { font-size: 1.3rem; margin: 4px 0 0; color: var(--accent); font-weight: 600; }
+details { flex-basis: 100%; }
+summary { cursor: pointer; color: var(--muted); }
+details[open] { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.micbar { margin: 0; }
+.micbar label { margin: 0; }
+select { font: inherit; padding: 6px 8px; max-width: 100%; color: var(--fg); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; }
+.meter { width: 160px; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+#level { height: 100%; width: 0; background: var(--bar); transition: width 60ms linear; }
+.result h3 { margin: 0 0 4px; display: flex; justify-content: space-between; gap: 12px; }
+.result .total { color: var(--accent); }
+.bars { display: grid; grid-template-columns: max-content 1fr 2.5em; gap: 2px 8px; align-items: center; margin: 8px 0; font-size: .9rem; }
+.bars .track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.bars .fill { height: 100%; background: var(--bar); }
+.result p { margin: 4px 0; }
+.result audio { width: 100%; margin-top: 8px; }
+#board { border-collapse: collapse; font-size: 1.1rem; margin-bottom: 16px; }
+#board th, #board td { padding: 4px 16px 4px 0; text-align: left; }
+#board th { color: var(--muted); font-weight: 600; font-size: .9rem; }
+#board td:not(:first-child) { font-variant-numeric: tabular-nums; }
+#board tbody tr:first-child td { font-weight: 700; }
+
+.result.win { background: var(--win-bg); border-color: var(--win); box-shadow: 0 0 0 2px var(--win); }
+.result .verdict { font-size: 1.4rem; font-weight: 800; color: var(--win); margin: 0 0 4px; }
+.result .verdict.blowout { font-size: 1.7rem; animation: pop .6s ease-out; }
+.result .verdict.clear { animation: pop .5s ease-out; }
+.result .verdict.close, .result .verdict.tie { animation: wobble .7s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { .result .verdict { animation: none !important; } }
+.banner { font-size: 1.8rem; font-weight: 800; line-height: 1.25; color: var(--accent); margin: 8px 0 16px; }
+.banner.blowout { font-size: 2.4rem; animation: pop .6s ease-out; }
+.banner.clear { animation: pop .5s ease-out; }
+.banner.close, .banner.tie { animation: wobble .7s ease-in-out; }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-2deg); } 75% { transform: rotate(2deg); } }
+@media (prefers-reduced-motion: reduce) { .banner { animation: none !important; } }
