@@ -62,9 +62,8 @@ There is nothing to install: `npm start` just runs `node server.mjs`.
    choose your external mic. The choice is remembered.)
 2. **Type the player names**, one per line. However many names you type is how many play.
 3. **Choose a difficulty** and the number of rounds, then press **Start**.
-4. Each round shows a line and a direction. Use **🔊 Read it** to hear the prompt (handy
-   for kids who can't read yet), **🎲 New prompt** to reroll before anyone records, or
-   **Write your own** to make one up.
+4. Each round shows a line and a direction. Use **🎲 New prompt** to reroll before anyone
+   records, or **Write your own** to make one up.
 5. Each player presses **● Record**, performs, and presses **■ Stop**. The first take
    counts, and recording stops by itself after 12 seconds.
 6. While the next player records, the last take is judged in the background (about 7–12
@@ -156,3 +155,7 @@ To change how the judge scores, edit `JUDGE_INSTRUCTIONS` and `DIFFICULTY_NOTES`
 | "OPENAI_API_KEY is not set." on start | Export the key in the same terminal before `npm start`. |
 | "The judge had trouble: …" | The message comes from OpenAI (bad key, no access to the model, rate limit). Press **Try judging again**, or set `JUDGE_MODEL`. |
 | Port already in use | `PORT=5180 npm start`, then open that port. |
+
+## License
+
+[MIT](LICENSE)

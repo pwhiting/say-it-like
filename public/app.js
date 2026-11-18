@@ -22,12 +22,6 @@ function show(id) {
   for (const s of ['setup', 'round', 'results']) $(s).hidden = s !== id;
 }
 
-function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
@@ -172,8 +166,6 @@ function renderTurn() {
   $('round-msg').textContent = '';
 }
 
-$('read').onclick = () => speak(`Say it ${prompt.direction}: ${prompt.line}`);
-
 $('shuffle').onclick = () => {
   prompt = randomPrompt(difficulty);
   renderPrompt();
@@ -208,7 +200,6 @@ function startRecording() {
     $('round-msg').textContent = 'No microphone. Pick one at the top.';
     return;
   }
-  speechSynthesis?.cancel();
   chunks = [];
   const mime = pickMime();
   recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -378,9 +369,7 @@ function renderResults() {
         <div class="bars">${bar(label, r.manner)}${bar('Character', r.character)}${bar('Line', r.line)}${bar('Flair', r.flair)}</div>
         <p>${esc(r.comment)}</p>
         <p class="muted">Tip: ${esc(r.tip)}</p>
-        <p class="muted">Heard: “${esc(r.heard)}”</p>
-        <div class="row"><button data-act="say">🔊 Read</button></div>`;
-      el.querySelector('[data-act=say]').onclick = () => speak(`${p.name}, ${r.total} points. ${r.comment}`);
+        <p class="muted">Heard: “${esc(r.heard)}”</p>`;
     } else {
       el.innerHTML = `<h3><span>${esc(p.name)}</span></h3><p class="msg">The judge had trouble: ${esc(t.error)}</p>
         <div class="row"><button data-act="retry">Try judging again</button></div>`;

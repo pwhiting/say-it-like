@@ -2,6 +2,7 @@
   "name": "say-it-like",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "A family voice-acting party game judged by an AI that listens.",
   "type": "module",
   "engines": { "node": ">=20" },
