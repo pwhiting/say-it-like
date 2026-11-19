@@ -60,7 +60,7 @@ export const CHARACTERS = {
     'opera singer', 'auctioneer', 'movie trailer narrator', 'nature documentary narrator',
     'fortune teller', 'court jester', 'braggart soldier', 'miser counting coins',
     'night watchman', 'stage manager calling places', "queen's herald", 'retired sea captain',
-    'ballet teacher', 'museum curator', 'radio play announcer',
+    'ballet teacher', 'museum curator', 'radio play announcer', 'yoga instructor',
   ],
 };
 
