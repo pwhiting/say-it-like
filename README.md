@@ -33,6 +33,12 @@ show scores  ◄─────────────────────�
   recording as `input_audio` and must reply by calling a `submit_score` function. The
   server turns its 0–10 sub-scores into a 0–100 total.
 
+## iPhone and iPad app
+
+There is also a native iOS app in [`ios/`](ios/README.md) that plays the same game with no
+server: pass the phone around, an announcer calls each player up ("Lights! Camera!
+Action!"), and a countdown records each take. See [ios/README.md](ios/README.md).
+
 ## Requirements
 
 - **Node.js 20 or later** (`node --version`).
@@ -132,6 +138,7 @@ public/prompts.js   Every mood, character, action, situation and style, tagged b
 public/lines.js     The lines players perform (about 700)
 public/phrases.js   What the game says when someone wins a round
 public/styles.css   Styles (light and dark)
+ios/                The iPhone and iPad app (see ios/README.md)
 ```
 
 ## Adding prompts
