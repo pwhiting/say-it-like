@@ -9,7 +9,7 @@ final class Announcer {
 
     private let settings: AppSettings
     private var clips: [String: Data] = [:] // "voice|text" -> MP3
-    private var player: AVAudioPlayer?
+    @ObservationIgnored private let channel = AudioChannel()
     private(set) var readyNames: Set<String> = []
     private(set) var lastError: String?
 
@@ -75,12 +75,8 @@ final class Announcer {
 
     /// Plays MP3 data and returns when it finishes (or is stopped).
     func play(_ data: Data) async {
-        stop()
-        guard let p = try? AVAudioPlayer(data: data) else { return }
-        player = p
-        p.prepareToPlay()
-        p.play()
-        try? await Task.sleep(for: .seconds(p.duration))
+        let duration = await channel.play(data)
+        try? await Task.sleep(for: .seconds(duration))
     }
 
     /// Speaks any line, generating it on the fly. Returns false if the voice was unavailable.
@@ -106,8 +102,7 @@ final class Announcer {
     }
 
     func stop() {
-        player?.stop()
-        player = nil
+        channel.stop()
     }
 
     /// Forgets every clip (they contain player names).
@@ -122,7 +117,7 @@ final class Announcer {
 /// Never played while a take is recording.
 final class SoundFX {
     private let settings: AppSettings
-    private var players: [AVAudioPlayer] = []
+    private let channel = AudioChannel(mixes: true)
 
     private lazy var smallFanfare = Self.notes([(523.25, 0), (659.25, 0.1), (783.99, 0.2), (1046.5, 0.3)])
     private lazy var bigFanfare = Self.notes([(523.25, 0), (659.25, 0.12), (783.99, 0.24), (1046.5, 0.36), (783.99, 0.56), (1046.5, 0.68)])
@@ -140,16 +135,12 @@ final class SoundFX {
     func roll() { play(drumroll, volume: 0.55) }
 
     private func play(_ data: Data, volume: Float = 1) {
-        guard settings.soundEffects, let p = try? AVAudioPlayer(data: data) else { return }
-        players.removeAll { !$0.isPlaying }
-        p.volume = volume
-        p.play()
-        players.append(p)
+        guard settings.soundEffects else { return }
+        channel.start(data, volume: volume)
     }
 
     func stopAll() {
-        players.forEach { $0.stop() }
-        players = []
+        channel.stop()
     }
 
     // MARK: synthesis

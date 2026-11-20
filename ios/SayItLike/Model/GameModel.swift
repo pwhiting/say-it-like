@@ -79,6 +79,7 @@ final class GameModel {
     private var celebratedKey = ""
     private var turnTask: Task<Void, Never>?
     private var autoStop: Task<Void, Never>?
+    private var stopping = false
     private var timerTask: Task<Void, Never>?
     private var revealTask: Task<Void, Never>?
     private var winnerSpeech: Task<Data?, Never>?
@@ -256,18 +257,20 @@ final class GameModel {
                 }
             }
             guard !Task.isCancelled, stage == .announcing else { return }
-            startRecording()
+            await startRecording()
         }
     }
 
-    private func startRecording() {
+    private func startRecording() async {
         do {
-            try recorder.start()
+            try await recorder.start()
         } catch {
             alert = error.localizedDescription
             withAnimation { stage = .ready; cue = .none }
             return
         }
+        // The turn may have been interrupted while the microphone was starting.
+        guard !Task.isCancelled, stage == .announcing else { recorder.cancel(); return }
         let seconds = recordSeconds
         withAnimation(.snappy) { stage = .recording(start: .now, seconds: seconds) }
         autoStop = Task {
@@ -278,9 +281,19 @@ final class GameModel {
     }
 
     func finishRecording() {
-        guard case .recording = stage else { return }
+        guard case .recording = stage, !stopping else { return }
+        stopping = true
         autoStop?.cancel()
-        let audio = recorder.stop()
+        Task {
+            let audio = await recorder.stop()
+            stopping = false
+            // If the turn was interrupted meanwhile, the take is discarded.
+            guard case .recording = stage else { return }
+            keep(audio)
+        }
+    }
+
+    private func keep(_ audio: Data?) {
         cue = .none
         guard let audio else {
             alert = "Nothing was recorded. Give it another go!"
