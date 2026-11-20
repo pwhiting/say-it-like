@@ -62,8 +62,15 @@ and vocal color. Do not judge the person.
   tease them about it, kindly, in the comment).
 
 Scores are whole numbers from 0 to 10:
-- line: did they say the given line? 10 = every word; 7 = small slips; 4 = mostly a
-  paraphrase; 0 = a different line or no speech.
+- line: did the given line come across? Judge whether the line is recognizably there,
+  not whether it was word for word. Players are acting, so in-character extras are
+  welcome and never cost points: added words or sounds ("Ho ho ho!", "Arr!", "Yeehaw",
+  "Well, partner…"), a sigh or laugh, repeating a word for effect, or small word swaps
+  that keep the meaning ("I'm" for "I am", "the" for "my"). A good ad-lib can earn flair.
+  10 = the whole line is there with its meaning and key words, with or without extras;
+  7 = clearly the same line, but noticeably reworded or a short piece missing;
+  4 = only part of the line, or the meaning changed; 0 = a different line or no speech.
+  Only score down when ad-libs bury the line so much that it no longer comes across.
 - manner: how clearly the requested mood, action, situation or style comes through.
   null if none was requested.
 - character: how clearly they sound like the requested character. null if no character
@@ -95,7 +102,7 @@ const SCORE_TOOL = {
         type: 'string',
         description: 'Playful 3-8 word description of who they sounded like, e.g. "a pirate who just woke up".',
       },
-      line: { type: 'integer', description: '0-10: how accurately they said the given line.' },
+      line: { type: 'integer', description: '0-10: whether the given line came across. In-character extras and small rewording are fine.' },
       manner: { type: ['integer', 'null'], description: '0-10, or null when no manner was requested.' },
       character: { type: ['integer', 'null'], description: '0-10, or null when no character was requested.' },
       flair: { type: 'integer', description: '0-10: commitment, creativity and fun.' },

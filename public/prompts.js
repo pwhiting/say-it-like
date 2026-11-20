@@ -1,5 +1,7 @@
 // Prompt pieces, by difficulty. Rules for adding entries:
-// - No nationalities, ethnicities, regional accents, or real groups of people.
+// - No nationalities or ethnicities, no accents tied to them, and no real groups of people.
+//   Regional types people imitate affectionately (a New Yorker) are fine; skip any that are
+//   shorthand for being poor, rural or uneducated.
 // - No drugs, alcohol, intoxication, flirting, cruelty, or anything a young child shouldn't say.
 // - Characters are story archetypes, jobs, animals, or fantasy creatures.
 // - Lines are short, everyday, and not quotes from movies or songs.
@@ -9,6 +11,8 @@
 // Phrasing: moods are adjectives ("a scared cowboy", "like you're scared"). Actions and
 // situations read after "you're" and "who's" ("like a cowboy who's out of breath").
 // Styles are complete phrases that follow "Say it".
+
+import { LINES } from './lines.js';
 
 export const MOODS = {
   easy: [
@@ -45,6 +49,7 @@ export const CHARACTERS = {
     'queen', 'wizard', 'toddler who wants a cookie', 'talking dog', 'penguin', 'baby bird',
     'cartoon villain', 'grandma reading a bedtime story', 'sports announcer', 'astronaut',
     'fairy godmother', 'melting snowman', 'rooster at dawn', 'sleepy bear', 'scarecrow', 'monster under the bed',
+    'Santa Claus', 'army sergeant',
   ],
   medium: [
     'news anchor', 'librarian', 'lifeguard', 'chef on a cooking show', 'coach at halftime',
@@ -54,13 +59,14 @@ export const CHARACTERS = {
     'kindergarten teacher', 'substitute teacher', 'museum guard', 'castle butler',
     'college student during finals week', 'mountain climber at the summit', 'town crier',
     'circus ringmaster', 'puppet', 'toy soldier', 'grumpy gnome', 'owl professor',
-    'sea captain in a storm',
+    'sea captain in a storm', 'grim reaper', 'short-order cook', 'soccer announcer', 'surfer',
+    'preacher', 'mob boss', 'New Yorker',
   ],
   actor: [
     'opera singer', 'auctioneer', 'movie trailer narrator', 'nature documentary narrator',
     'fortune teller', 'court jester', 'braggart soldier', 'miser counting coins',
     'night watchman', 'stage manager calling places', "queen's herald", 'retired sea captain',
-    'ballet teacher', 'museum curator', 'radio play announcer', 'yoga instructor',
+    'ballet teacher', 'museum curator', 'radio play announcer', 'yoga instructor', 'golf announcer',
   ],
 };
 
@@ -113,43 +119,8 @@ export const STYLES = {
   ],
 };
 
-export const LINES = [
-  'Hello, partner.',
-  "I sure do hope the weather doesn't get worse.",
-  'Who ate the last cookie?',
-  'I have something very important to tell you.',
-  'Please pass the potatoes.',
-  'This is the best day of my life.',
-  'I think I left the oven on.',
-  'Has anyone seen my other sock?',
-  'The treasure is buried under the big oak tree.',
-  'Time for bed, everybody.',
-  "Don't forget to brush your teeth.",
-  "I can't believe it's Monday already.",
-  "There's a spider on the ceiling.",
-  'Good morning, sunshine.',
-  "Let's go to the park.",
-  'Is it lunchtime yet?',
-  "Somebody's at the door.",
-  'I won the big race!',
-  'The cat knocked over my juice.',
-  'Grandma made pancakes!',
-  'Where did I put my glasses?',
-  'We are almost there.',
-  'Can I have one more story?',
-  'The bus is late again.',
-  'I found a frog in my boot.',
-  'Who wants ice cream?',
-  'Please close the door behind you.',
-  'I knew this would happen.',
-  "It's your turn to do the dishes.",
-  'Look at all these stars.',
-  'The package finally came.',
-  'Nobody told me it was pajama day.',
-  'I just want one quiet minute.',
-  'The garden is full of tomatoes.',
-  'You will never guess what I found.',
-];
+// The lines to perform live in lines.js.
+export { LINES };
 
 export const DIFFICULTIES = {
   easy: { label: 'Easy (kids)', tiers: ['easy'] },
@@ -161,7 +132,9 @@ export const KIND_LABELS = { mood: 'Mood', action: 'Action', situation: 'Situati
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const pool = (table, difficulty) => DIFFICULTIES[difficulty].tiers.flatMap((t) => table[t]);
-const withArticle = (words) => `${/^[aeiou]/i.test(words) ? 'an' : 'a'} ${words}`;
+// Characters who are one specific person take no article: "like Santa Claus".
+const NAMED = new Set(['Santa Claus']);
+const withArticle = (words) => (NAMED.has(words) ? words : `${/^[aeiou]/i.test(words) ? 'an' : 'a'} ${words}`);
 
 // The direction shown to players, e.g. "like a scared cowboy" or "in slow motion".
 export function direction(manner, character) {

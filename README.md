@@ -9,8 +9,8 @@ for how to say it:
 Players take turns recording themselves in the browser. An AI judge listens to each
 recording and scores how well the **voice** delivered the direction: the mood, the
 character, the words, and the flair. When everyone has been judged, the scores are revealed
-together, the round winner's card lights up green, and a scoreboard keeps each player's
-round wins and total score across the game.
+together: the round winner gets a gold card, a trophy, confetti and a short fanfare, and a
+scoreboard keeps each player's round wins and total score across the game.
 
 It grew out of a game played with grandchildren ("say *hello, partner* like you're sad…
 now like you're happy!"), with a judge that can put a number on it so people can compete.
@@ -60,17 +60,32 @@ There is nothing to install: `npm start` just runs `node server.mjs`.
 1. **Pick your microphone** from the 🎤 menu at the top and talk; the orange bar should
    move. (On a laptop with the lid closed, the default mic may be the built-in one, so
    choose your external mic. The choice is remembered.)
-2. **Type the player names**, one per line. However many names you type is how many play.
+2. **Type the player names**, one per line, in the order you'll go in round 1. However many
+   names you type is how many play. The names are remembered for next time.
 3. **Choose a difficulty** and the number of rounds, then press **Start**.
 4. Each round shows a line and a direction. Use **🎲 New prompt** to reroll before anyone
    records, or **Write your own** to make one up.
-5. Each player presses **● Record**, performs, and presses **■ Stop**. The first take
-   counts, and recording stops by itself after 12 seconds.
+5. The turn order is shown above the record button. Each player presses **Record**,
+   performs, and presses **Stop**. The first take counts, and recording stops by itself
+   after 12 seconds.
 6. While the next player records, the last take is judged in the background (about 7–12
    seconds each). Results stay hidden until everyone has been judged.
 7. The results show each player's score, what they "sounded like", a comment, a tip, and
-   a replay of their take. The winner's card turns green. Ties share the win.
+   a replay of their take. The winner's card turns gold and they earn a 🏆. Ties share
+   the win.
 8. After the last round, the player with the highest total score is crowned champion.
+
+The 🔊 button at the top turns the fanfare on or off. Animations and confetti are skipped
+when the device asks for reduced motion.
+
+### Turn order
+
+- **Round 1:** the order the names were typed.
+- **Every round after:** the player with the most round wins goes first, then the next most,
+  and so on. Players tied on wins go in order of who won most recently. Anyone still tied
+  (no wins yet, or they shared the same round) keeps the order the names were typed.
+
+The results screen shows the next round's order before you press **Next round**.
 
 ### Difficulty
 
@@ -88,7 +103,7 @@ The judge scores each part from 0 to 10:
 |---|---|
 | Manner | How clearly the requested mood, action, situation or style comes through |
 | Character | How clearly the player sounds like the requested character |
-| Line | Whether they said the given words |
+| Line | Whether the line came across. It doesn't have to be word for word: in-character extras ("Ho ho ho!", "Arr!") and small rewording don't cost points, and a good ad-lib can earn flair |
 | Flair | Commitment, creativity and fun |
 
 The total out of 100 weights the direction (manner and character, split evenly when both
@@ -113,20 +128,26 @@ Set these environment variables before `npm start`:
 server.mjs          Local server: static files, /api/score, the judge's instructions and scoring rubric
 public/index.html   The page
 public/app.js       Game flow: mic selection, recording, turns, judging, results, scoreboard
-public/prompts.js   Every mood, character, action, situation, style and line, tagged by difficulty
+public/prompts.js   Every mood, character, action, situation and style, tagged by difficulty
+public/lines.js     The lines players perform (about 700)
+public/phrases.js   What the game says when someone wins a round
 public/styles.css   Styles (light and dark)
 ```
 
 ## Adding prompts
 
-Edit `public/prompts.js`. Each list has `easy`, `medium` and `actor` tiers. The comment at
+Lines to perform are in `public/lines.js`, grouped by theme. Winner shout-outs are in
+`public/phrases.js`, grouped by how big the win was; `{n}` becomes the winner's name.
+Everything else is in `public/prompts.js`. Each list has `easy`, `medium` and `actor` tiers. The comment at
 the top of the file explains how entries are phrased so they read naturally, e.g. "like a
 *scared* cowboy" or "like a cowboy who's *out of breath after a race*".
 
 The game is meant for families, so keep to these rules:
 
-- No nationalities, ethnicities, regional accents, or real groups of people. Accent
-  imitation turns into caricature, and a judge would reward the exaggeration.
+- No nationalities or ethnicities, no accents tied to them, and no real groups of people.
+  Imitating those turns into caricature, and a judge would reward the exaggeration.
+  Regional types people imitate affectionately, like a New Yorker, are fine. Skip any that
+  are shorthand for being poor, rural or uneducated.
 - No drugs, alcohol, intoxication, flirting or cruelty.
 - Characters are story archetypes, jobs, animals or fantasy creatures.
 - Lines are short and everyday, not quotes from movies or songs.
