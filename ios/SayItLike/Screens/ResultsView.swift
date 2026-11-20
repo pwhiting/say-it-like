@@ -10,31 +10,35 @@ struct ResultsView: View {
     }
 
     var body: some View {
+        let gutter: CGFloat = isLarge ? 40 : 18
         ScrollView {
             VStack(spacing: isLarge ? 22 : 16) {
                 Eyebrow(text: "Round \(game.round) of \(game.totalRounds) · Results", color: Theme.subtext, size: isLarge ? 16 : 13)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 10)
+                    .padding(.horizontal, gutter)
 
                 if game.isRevealed {
-                    ForEach(Array(cardOrder.enumerated()), id: \.element) { pos, i in
-                        ResultCard(index: i, position: pos)
-                            .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
+                    ResultCarousel(order: cardOrder, gutter: gutter)
+                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
+                    Group {
+                        Scoreboard(final: false)
+                            .transition(.opacity)
+                        if game.players.count > 1 && !game.isLastRound {
+                            nextOrder
+                        }
                     }
-                    Scoreboard(final: false)
-                        .transition(.opacity)
-                    if game.players.count > 1 && !game.isLastRound {
-                        nextOrder
-                    }
+                    .padding(.horizontal, gutter)
                 } else if game.reveal == .suspense && game.allSettled {
                     Suspense()
+                        .padding(.horizontal, gutter)
                         .transition(.scale(scale: 0.9).combined(with: .opacity))
                 } else {
                     Deliberating()
+                        .padding(.horizontal, gutter)
                         .transition(.opacity)
                 }
             }
-            .padding(.horizontal, isLarge ? 40 : 18)
             .padding(.bottom, 24)
             .frame(maxWidth: isLarge ? 820 : .infinity)
             .frame(maxWidth: .infinity)
@@ -152,9 +156,105 @@ private struct Suspense: View {
     }
 }
 
+/// The round's result cards, best first, one at a time: swipe left and right to flip between
+/// them, or tap a face in the strip underneath to jump to that player.
+private struct ResultCarousel: View {
+    let order: [Int]
+    let gutter: CGFloat
+    @Environment(GameModel.self) private var game
+    @Environment(\.isLarge) private var isLarge
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var current: Int?
+    private let glow: CGFloat = 32
+    private let spacing: CGFloat = 10
+
+    var body: some View {
+        let shown = current ?? order.first
+        VStack(spacing: isLarge ? 16 : 12) {
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: spacing) {
+                    ForEach(order, id: \.self) { i in
+                        ResultCard(index: i, active: shown == i)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                            .containerRelativeFrame(.horizontal)
+                            .modifier(CardFlip(spacing: spacing, reduceMotion: reduceMotion))
+                            .id(i)
+                    }
+                }
+                // Every card is as tall as the tallest, so the strip doesn't jump while swiping.
+                .fixedSize(horizontal: false, vertical: true)
+                .scrollTargetLayout()
+                // Room for the winner's glow, which the scroll view would otherwise clip.
+                .padding(.vertical, glow)
+            }
+            .padding(.vertical, -glow)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $current)
+            .scrollIndicators(.hidden)
+            .contentMargins(.horizontal, gutter, for: .scrollContent)
+            .onChange(of: current) { old, new in
+                if old != nil, new != nil { Haptics.tick() }
+            }
+
+            if order.count > 1 { pager(shown: shown) }
+        }
+    }
+
+    /// One face per card, in card order; the current card's face is ringed.
+    private func pager(shown: Int?) -> some View {
+        let size: CGFloat = order.count > 8 ? 24 : (isLarge ? 40 : 34)
+        return HStack(spacing: order.count > 8 ? 5 : 8) {
+            ForEach(order, id: \.self) { i in
+                let on = shown == i
+                Button {
+                    withAnimation(.snappy) { current = i }
+                } label: {
+                    Avatar(player: game.players[i], size: size)
+                        .padding(3)
+                        .overlay(Circle().strokeBorder(on ? Theme.gold : .clear, lineWidth: 2))
+                        .scaleEffect(on ? 1 : 0.82)
+                        .opacity(on ? 1 : 0.5)
+                        .animation(.snappy, value: on)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show \(game.players[i].name)'s score")
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(.horizontal, gutter)
+    }
+}
+
+/// Turns the carousel's sideways scroll into a card flip. Each card is pinned in place while
+/// the scroll view moves underneath it: the outgoing card turns edge-on over the first half of
+/// a swipe, then the incoming one turns face-up over the second half, both spinning the same
+/// way. With Reduce Motion on, the cards cross-fade instead.
+private struct CardFlip: ViewModifier {
+    let spacing: CGFloat
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        let spacing = spacing, reduceMotion = reduceMotion
+        content.visualEffect { effect, proxy in
+            // The scroll view's coordinate space starts inside its content margin, so a card
+            // that is in place sits at x = 0.
+            let x = proxy.frame(in: .scrollView(axis: .horizontal)).minX
+            // 0 when the card is in place, -1 one card to the left, +1 one to the right.
+            let progress = x / (proxy.size.width + spacing)
+            let half = abs(progress) < 0.5
+            return effect
+                .rotation3DEffect(.degrees(reduceMotion || !half ? 0 : progress * 180),
+                                  axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+                .scaleEffect(reduceMotion ? 1 : 1 - min(abs(progress), 0.5) * 0.16)
+                .opacity(reduceMotion ? max(0, 1 - abs(progress) * 2) : (half ? 1 : 0))
+                .offset(x: -x)
+        }
+    }
+}
+
 private struct ResultCard: View {
     let index: Int
-    let position: Int
+    let active: Bool
     @Environment(GameModel.self) private var game
     @Environment(\.isLarge) private var isLarge
     @State private var shownTotal = 0
@@ -253,6 +353,8 @@ private struct ResultCard: View {
                     .buttonStyle(.glass(size: 16))
             }
 
+            Spacer(minLength: 0)
+
             if let take {
                 let playing = game.takePlayer.playingID == take.id
                 Button {
@@ -265,7 +367,7 @@ private struct ResultCard: View {
             }
         }
         .padding(isLarge ? 26 : 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(won ? AnyShapeStyle(LinearGradient(colors: [Theme.gold.opacity(0.2), Theme.amber.opacity(0.08)],
@@ -277,13 +379,17 @@ private struct ResultCard: View {
                 .strokeBorder(won ? AnyShapeStyle(Theme.goldFill) : AnyShapeStyle(Theme.stroke), lineWidth: won ? 2 : 1)
         )
         .shadow(color: won ? Theme.amber.opacity(0.35) : .clear, radius: 24, y: 8)
-        .onAppear {
-            guard let total = take?.result?.total else { return }
-            withAnimation(.easeOut(duration: 1.1).delay(0.15 + Double(position) * 0.14)) { shownTotal = total }
-        }
+        // Each score counts up the first time its card comes into view.
+        .onAppear { if active { countUp(delay: 0.15) } }
+        .onChange(of: active) { _, now in if now { countUp(delay: 0.05) } }
         .onChange(of: take?.result?.total) { _, total in
             withAnimation(.easeOut(duration: 0.8)) { shownTotal = total ?? 0 }
         }
+    }
+
+    private func countUp(delay: Double) {
+        guard let total = game.takes[index]?.result?.total, shownTotal != total else { return }
+        withAnimation(.easeOut(duration: 1.1).delay(delay)) { shownTotal = total }
     }
 
     private func bar(_ label: String, _ value: Int) -> some View {

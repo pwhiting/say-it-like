@@ -10,7 +10,7 @@ extension GameModel {
         guard let i = args.firstIndex(of: "-demo"), i + 1 < args.count else { return }
         let screen = args[i + 1]
 
-        players = ["Grandpa", "Ava", "Leo", "Mom"].enumerated().map { Player(name: $1, colorIndex: $0) }
+        players = ["Pete", "Amy", "Olivia", "Brooklyn"].enumerated().map { Player(name: $1, colorIndex: $0) }
         players[1].wins = 2; players[1].score = 168; players[1].lastWin = 2
         players[0].wins = 1; players[0].score = 151; players[0].lastWin = 1
         players[2].score = 122
