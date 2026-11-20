@@ -7,35 +7,56 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <h1>Say It Like</h1>
-    <div class="row micbar">
-      <label for="mic">🎤</label>
-      <select id="mic"></select>
-      <div class="meter"><div id="level"></div></div>
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 36" aria-hidden="true">
+        <path d="M6 2h28a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H17l-8 7v-7H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" fill="currentColor"/>
+        <text x="20" y="21" text-anchor="middle" font-size="18" font-weight="900" fill="#fff" font-family="Georgia, serif">“”</text>
+      </svg>
+      <span>Say It Like</span>
     </div>
+    <div class="micbar">
+      <label for="mic" class="sr">Microphone</label>
+      <span aria-hidden="true">🎤</span>
+      <select id="mic"></select>
+      <div class="meter" aria-hidden="true"><div id="level"></div></div>
+      <button id="sound" class="icon" type="button" aria-pressed="true" title="Sound effects">🔊</button>
+    </div>
+  </header>
+
+  <main>
     <p id="mic-msg" class="msg"></p>
 
     <section id="setup">
-      <label>Player Names (one per line - include as many as are playing)
-        <textarea id="names" rows="5"></textarea>
-      </label>
-      <label>Difficulty
-        <select id="difficulty">
-          <option value="easy">Easy (kids)</option>
-          <option value="medium" selected>Medium</option>
-          <option value="actor">Actor</option>
-        </select>
-      </label>
-      <label>Rounds <input id="rounds" type="number" min="1" max="20" value="5"></label>
-      <button id="start" class="primary">Start</button>
-      <p id="setup-msg" class="msg"></p>
+      <div class="hero">
+        <h1>Same line. Different voices.<br><span>Who sells it best?</span></h1>
+        <p class="muted">Everyone gets the same words and a way to say them. An AI judge listens
+          and scores each performance. Win rounds, collect trophies, take the crown.</p>
+      </div>
+      <div class="card setup">
+        <label>Who's playing? <span class="hint">One name per line, in the order you'll go in round 1.</span>
+          <textarea id="names" rows="5" placeholder="Grandpa&#10;Ava&#10;Leo"></textarea>
+        </label>
+        <fieldset class="seg">
+          <legend>Difficulty</legend>
+          <label><input type="radio" name="difficulty" value="easy"><span>Easy <small>kids</small></span></label>
+          <label><input type="radio" name="difficulty" value="medium" checked><span>Medium</span></label>
+          <label><input type="radio" name="difficulty" value="actor"><span>Actor <small>subtle</small></span></label>
+        </fieldset>
+        <label class="rounds">Rounds <input id="rounds" type="number" min="1" max="20" value="5"></label>
+        <button id="start" class="primary big">Let's play</button>
+        <p id="setup-msg" class="msg"></p>
+      </div>
     </section>
 
     <section id="round" hidden>
-      <p class="muted" id="round-label"></p>
-      <div class="card">
-        <p class="say">Say <q id="line"></q></p>
+      <div class="roundbar">
+        <span id="round-label" class="eyebrow"></span>
+        <span id="pips" class="pips" aria-hidden="true"></span>
+      </div>
+      <div class="card prompt">
+        <p class="say-label">Say</p>
+        <p class="say"><q id="line"></q></p>
         <p class="style" id="style"></p>
       </div>
       <div class="row" id="prompt-tools">
@@ -49,22 +70,33 @@
         </details>
       </div>
 
-      <h2 id="turn"></h2>
-      <div class="row">
-        <button id="rec" class="primary big">● Record</button>
-        <span id="timer" class="muted"></span>
+      <div id="lineup-wrap">
+        <p class="eyebrow" id="lineup-label">Turn order</p>
+        <ol id="lineup" class="lineup"></ol>
       </div>
-      <p id="round-msg" class="msg"></p>
+
+      <div class="stage">
+        <h2 id="turn"></h2>
+        <button id="rec" class="recbtn" type="button">
+          <span class="core"><span id="rec-icon" class="rec-icon" aria-hidden="true"></span><span id="rec-text">Record</span></span>
+        </button>
+        <p id="timer" class="muted hint-line"></p>
+        <p id="round-msg" class="msg"></p>
+      </div>
     </section>
 
     <section id="results" hidden>
-      <h2 id="results-title"></h2>
-      <p id="banner" class="banner" hidden></p>
-      <p id="waiting" class="muted" hidden>Scores are revealed when everyone has been judged…</p>
+      <p class="eyebrow" id="results-title"></p>
+      <div id="suspense" class="suspense" hidden>And the round goes to<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+      <div id="banner" class="banner" hidden></div>
+      <p id="waiting" class="muted waiting" hidden>Scores are revealed when everyone has been judged…</p>
       <div id="result-cards"></div>
-      <h3>Scoreboard</h3>
-      <table id="board"></table>
-      <button id="next" class="primary" disabled>Next round</button>
+      <div class="card board-card">
+        <h3>Scoreboard</h3>
+        <table id="board"></table>
+        <p id="next-order" class="muted next-order" hidden></p>
+      </div>
+      <button id="next" class="primary big" disabled>Next round</button>
     </section>
   </main>
   <script type="module" src="app.js"></script>

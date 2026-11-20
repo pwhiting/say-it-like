@@ -1,25 +1,33 @@
 import { randomPrompt, direction, KIND_LABELS } from './prompts.js';
+import { WIN_PHRASES as PHRASES, TOP_SCORE_TAGS, LOW_SCORE_TAGS } from './phrases.js';
 
 const $ = (id) => document.getElementById(id);
 const MAX_SECONDS = 12;
 const MAX_PLAYERS = 12;
+const COLORS = ['#e8590c', '#1c7ed6', '#7048e8', '#0c8599', '#d6336c', '#2f9e44',
+  '#c2255c', '#1971c2', '#9c36b5', '#e67700', '#3b5bdb', '#087f5b'];
 
-let players = [];      // { name, score, wins }
+let players = [];      // { name, score, wins, lastWin, color }
 let totalRounds = 5;
 let difficulty = 'medium';
 let round = 0;
 let prompt = null;     // { line, manner: {kind, text} | null, character, direction, difficulty }
-let turn = 0;
-let takes = [];        // per player this round: { blob, mime, url, prompt, result, error }
+let order = [];        // player indexes in this round's turn order
+let turn = 0;          // position in `order`
+let takes = [];        // by player index, this round: { blob, mime, url, prompt, result, error }
 let tallied = false;
 let outcome = null;    // { winners: [playerIndex], text, kind }
+let reveal = 'hidden'; // 'hidden' | 'suspense' | 'shown' for this round's results
+let celebrated = '';   // winners already celebrated this round, so a re-render doesn't repeat it
 
 let stream, audioCtx, analyser, source, recorder, chunks, tickTimer, meterRaf, recStart;
 
 // ---------- helpers ----------
 
 function show(id) {
+  stopReplay();
   for (const s of ['setup', 'round', 'results']) $(s).hidden = s !== id;
+  window.scrollTo({ top: 0 });
 }
 
 function esc(s) {
@@ -27,16 +35,150 @@ function esc(s) {
 }
 
 const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function joinNames(names) {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }
 
+function avatar(i, size = '') {
+  const p = players[i];
+  return `<span class="avatar ${size}" style="--c:${p.color}"><span>${esc([...p.name][0].toUpperCase())}</span></span>`;
+}
+
+function trophies(n) {
+  if (!n) return '';
+  return n <= 4 ? '🏆'.repeat(n) : `🏆×${n}`;
+}
+
+// Restarts a CSS entrance animation on an element.
+function replay(el, cls = 'fresh') {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+};
+
+// ---------- sound and confetti ----------
+
+let soundOn = store.get('sayitlike.sound') !== 'off';
+function renderSound() {
+  $('sound').textContent = soundOn ? '🔊' : '🔈';
+  $('sound').setAttribute('aria-pressed', String(soundOn));
+  $('sound').title = soundOn ? 'Sound effects on' : 'Sound effects off';
+}
+$('sound').onclick = () => {
+  soundOn = !soundOn;
+  store.set('sayitlike.sound', soundOn ? 'on' : 'off');
+  renderSound();
+};
+renderSound();
+
+// A short synthesized fanfare. Played only on the results screen, never while recording.
+function fanfare(big = false) {
+  if (!soundOn || !audioCtx) return;
+  audioCtx.resume();
+  const notes = big
+    ? [[523.25, 0], [659.25, .12], [783.99, .24], [1046.5, .36], [783.99, .56], [1046.5, .68]]
+    : [[523.25, 0], [659.25, .1], [783.99, .2], [1046.5, .3]];
+  const t0 = audioCtx.currentTime + .03;
+  notes.forEach(([freq, at], k) => {
+    const last = k === notes.length - 1;
+    const len = last ? .7 : .16;
+    for (const [type, vol, mult] of [['triangle', .16, 1], ['sine', .05, 2]]) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.value = freq * mult;
+      const t = t0 + at;
+      g.gain.setValueAtTime(.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, t + len);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t);
+      o.stop(t + len + .05);
+    }
+  });
+}
+
+// Confetti fired from both bottom corners. Draws on a temporary canvas, then removes it.
+function confetti(power = 1) {
+  if (calm()) return;
+  const c = document.createElement('canvas');
+  c.className = 'confetti';
+  document.body.appendChild(c);
+  const W = innerWidth, H = innerHeight, dpr = devicePixelRatio || 1;
+  c.width = W * dpr;
+  c.height = H * dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const colors = ['#f5b301', '#ffd76a', '#e8590c', '#f76707', '#1c7ed6', '#d6336c', '#2f9e44', '#7048e8'];
+  const n = Math.round(Math.min(220, (W / 4)) * power);
+  const parts = Array.from({ length: n }, (_, k) => {
+    const left = k % 2 === 0;
+    const speed = 11 + Math.random() * 11;
+    const angle = (left ? -1 : 1) * (Math.PI / 2 - (.25 + Math.random() * .55));
+    return {
+      x: left ? -10 : W + 10, y: H * .95,
+      vx: Math.sin(angle) * speed * (W / 900 + .4), vy: -Math.cos(angle) * speed * (H / 800 + .3),
+      w: 6 + Math.random() * 6, h: 9 + Math.random() * 8,
+      r: Math.random() * Math.PI, vr: (Math.random() - .5) * .35,
+      flip: Math.random() * Math.PI, vf: .1 + Math.random() * .2,
+      color: colors[k % colors.length], delay: Math.random() * 180,
+    };
+  });
+  const start = performance.now();
+  const LIFE = 3200;
+  function frame(now) {
+    const t = now - start;
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalAlpha = Math.max(0, Math.min(1, (LIFE - t) / 700));
+    for (const p of parts) {
+      if (t < p.delay) continue;
+      p.vy += .32;
+      p.vx *= .985;
+      p.vy *= .985;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.r += p.vr;
+      p.flip += p.vf;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.scale(1, Math.cos(p.flip));
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    if (t < LIFE) requestAnimationFrame(frame);
+    else c.remove();
+  }
+  requestAnimationFrame(frame);
+}
+
+// Counts a number up from 0 for the reveal.
+function countUp(el, to, delay) {
+  if (calm()) { el.textContent = to; return; }
+  el.textContent = '0';
+  const dur = 900;
+  setTimeout(() => {
+    const start = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - start) / dur);
+      el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, delay);
+}
+
 // ---------- microphone ----------
 
 const MIC_KEY = 'sayitlike.mic';
-const savedMic = () => { try { return localStorage.getItem(MIC_KEY); } catch { return null; } };
-const saveMic = (id) => { try { localStorage.setItem(MIC_KEY, id); } catch { /* private mode */ } };
 
 // One capture of the chosen device feeds both the meter and the recorder.
 async function openMic(deviceId) {
@@ -80,13 +222,15 @@ function meter() {
   analyser.getByteTimeDomainData(buf);
   let peak = 0;
   for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-  $('level').style.width = `${Math.min(100, (peak / 128) * 160)}%`;
+  const level = Math.min(1, (peak / 128) * 1.6);
+  $('level').style.width = `${level * 100}%`;
+  if (recorder?.state === 'recording') $('rec').style.setProperty('--lvl', level.toFixed(3));
   meterRaf = requestAnimationFrame(meter);
 }
 
 $('mic').onchange = async () => {
   if (recorder?.state === 'recording') stopRecording();
-  saveMic($('mic').value);
+  store.set(MIC_KEY, $('mic').value);
   await openMic($('mic').value);
 };
 
@@ -100,13 +244,16 @@ navigator.mediaDevices.addEventListener('devicechange', async () => {
 document.addEventListener('click', () => audioCtx?.state === 'suspended' && audioCtx.resume());
 
 (async () => {
-  const saved = savedMic();
+  const saved = store.get(MIC_KEY);
   await openMic(saved);
   if (!stream && saved) await openMic(null); // saved mic is gone
   await loadMics();                          // labels appear once permission is granted
 })();
 
 // ---------- setup ----------
+
+const NAMES_KEY = 'sayitlike.names';
+$('names').value = store.get(NAMES_KEY) || '';
 
 function parseNames(text) {
   const seen = new Map();
@@ -124,9 +271,10 @@ $('start').onclick = async () => {
     $('setup-msg').textContent = 'Type at least one player name.';
     return;
   }
-  players = names.map((name) => ({ name, score: 0, wins: 0 }));
+  store.set(NAMES_KEY, $('names').value.trim());
+  players = names.map((name, i) => ({ name, score: 0, wins: 0, lastWin: 0, color: COLORS[i % COLORS.length] }));
   totalRounds = Math.max(1, Math.min(20, parseInt($('rounds').value, 10) || 5));
-  difficulty = $('difficulty').value;
+  difficulty = document.querySelector('input[name=difficulty]:checked')?.value || 'medium';
   $('setup-msg').textContent = '';
   if (!stream) await openMic($('mic').value || null);
   if (!stream) {
@@ -138,37 +286,81 @@ $('start').onclick = async () => {
   startRound();
 };
 
+// ---------- turn order ----------
+
+// Round 1 goes in the order the names were typed. After that, most round wins goes first;
+// among players tied on wins, the one who won most recently goes first. Anyone still tied
+// (no wins yet, or they shared the same round) keeps the order the names were typed.
+function turnOrder(stats) {
+  return stats.map((_, i) => i).sort((a, b) =>
+    stats[b].wins - stats[a].wins || stats[b].lastWin - stats[a].lastWin || a - b);
+}
+
 // ---------- round ----------
 
 function startRound() {
   round += 1;
   prompt = randomPrompt(difficulty);
+  order = turnOrder(players);
   turn = 0;
   takes = [];
-  renderPrompt();
+  renderPrompt(true);
   renderTurn();
   show('round');
 }
 
-function renderPrompt() {
+function renderPrompt(animate = false) {
   $('round-label').textContent = `Round ${round} of ${totalRounds}`;
+  $('pips').innerHTML = totalRounds <= 20
+    ? Array.from({ length: totalRounds }, (_, k) => `<i class="${k + 1 < round ? 'done' : k + 1 === round ? 'now' : ''}"></i>`).join('')
+    : '';
   $('line').textContent = prompt.line;
   $('style').textContent = prompt.direction;
+  if (animate) replay(document.querySelector('.prompt'));
   const locked = turn > 0;
   $('shuffle').disabled = locked;
   $('custom').hidden = locked;
 }
 
+function renderLineup() {
+  const multi = players.length > 1;
+  $('lineup-wrap').hidden = !multi;
+  if (!multi) return;
+  $('lineup-label').textContent = round === 1 ? 'Turn order' : 'Turn order · most wins goes first';
+  $('lineup').innerHTML = order.map((i, pos) => {
+    const state = pos < turn ? 'done' : pos === turn ? 'now' : '';
+    const p = players[i];
+    return `<li class="${state}"><span class="n">${pos + 1}</span>${avatar(i)}<span>${esc(p.name)}</span>`
+      + (p.wins ? `<span class="trophies" title="${p.wins} round win${p.wins > 1 ? 's' : ''}">${trophies(p.wins)}</span>` : '')
+      + '</li>';
+  }).join('');
+}
+
 function renderTurn() {
-  $('turn').textContent = players.length > 1 ? `${players[turn].name}, your turn!` : 'Your turn!';
-  $('rec').textContent = '● Record';
-  $('timer').textContent = '';
+  const i = order[turn];
+  const h = $('turn');
+  h.innerHTML = players.length > 1 ? `${esc(players[i].name)}, you're up!` : 'Your turn!';
+  replay(h);
+  renderLineup();
+  setRecUI(false);
+  $('timer').textContent = `Up to ${MAX_SECONDS} seconds · your first take counts`;
   $('round-msg').textContent = '';
+}
+
+function setRecUI(recording) {
+  const btn = $('rec');
+  btn.classList.toggle('recording', recording);
+  $('rec-text').textContent = recording ? 'Stop' : 'Record';
+  btn.setAttribute('aria-label', recording ? 'Stop recording' : 'Start recording');
+  if (!recording) {
+    btn.style.setProperty('--p', 0);
+    btn.style.setProperty('--lvl', 0);
+  }
 }
 
 $('shuffle').onclick = () => {
   prompt = randomPrompt(difficulty);
-  renderPrompt();
+  renderPrompt(true);
 };
 
 $('c-use').onclick = () => {
@@ -183,7 +375,7 @@ $('c-use').onclick = () => {
   prompt = { line, manner, character, direction: direction(manner, character), difficulty };
   $('custom').open = false;
   $('round-msg').textContent = '';
-  renderPrompt();
+  renderPrompt(true);
 };
 
 // ---------- recording ----------
@@ -196,6 +388,7 @@ function pickMime() {
 }
 
 function startRecording() {
+  if ($('round').hidden || turn >= order.length) return;
   if (!stream) {
     $('round-msg').textContent = 'No microphone. Pick one at the top.';
     return;
@@ -207,12 +400,14 @@ function startRecording() {
   recorder.onstop = onRecorded;
   recorder.start();
   recStart = performance.now();
-  $('rec').textContent = '■ Stop';
+  setRecUI(true);
+  $('timer').textContent = `0s / ${MAX_SECONDS}s`;
   tickTimer = setInterval(() => {
     const s = (performance.now() - recStart) / 1000;
-    $('timer').textContent = `${s.toFixed(0)}s / ${MAX_SECONDS}s`;
+    $('rec').style.setProperty('--p', Math.min(1, s / MAX_SECONDS).toFixed(3));
+    $('timer').textContent = `${Math.floor(s)}s / ${MAX_SECONDS}s`;
     if (s >= MAX_SECONDS) stopRecording();
-  }, 200);
+  }, 100);
 }
 
 function stopRecording() {
@@ -230,7 +425,7 @@ function onRecorded() {
     return;
   }
   const take = { blob, mime, url: URL.createObjectURL(blob), prompt: { ...prompt }, result: null, error: null };
-  takes[turn] = take;
+  takes[order[turn]] = take;
   judge(take);
   turn += 1;
   if (turn < players.length) {
@@ -277,28 +472,6 @@ async function judge(take) {
 
 // ---------- round outcome ----------
 
-const PHRASES = {
-  blowout: [
-    '{n} nailed it!!!', '{n} absolutely crushed it!', 'Standing ovation for {n}! 👏👏👏',
-    '{n} stole the show!', 'Somebody give {n} a trophy! 🏆', '{n} brought the house down!',
-    'Nobody was even close. {n} wins!!', '{n} is a natural!',
-  ],
-  clear: [
-    '{n} wins, no contest!', '{n} takes the round in style!', 'That round belongs to {n}!',
-    '{n} wins it clearly!', 'Take a bow, {n}!',
-  ],
-  solid: ['{n} wins!', '{n} takes it!', 'Round goes to {n}!', 'Point for {n}!', '{n} gets this one!'],
-  close: [
-    '{n} wins by a whisker!', 'Photo finish! {n} squeaks it out!', '{n} wins by a hair!',
-    'Phew! {n} by a nose!', 'So close! {n} edges it!',
-  ],
-  tie: ["It's a tie! {n} share the round!", 'Dead heat between {n}!', 'Great minds! {n} tie!'],
-  soloGreat: ['Bravo! Encore! 🎭', 'Oscar-worthy!', 'You nailed it!!!'],
-  soloGood: ['Nicely done!', 'That was convincing!', 'The judge believed you!'],
-  soloOk: ['Not bad! Turn it up next time!', 'Getting there! Ham it up a bit more!'],
-  soloLow: ['Warm-up round! Really go for it next time!', 'The judge wants more drama!'],
-};
-
 // Decides who won the round and the phrase for the winning card. Ties share the win.
 function decideRound() {
   const scored = players
@@ -317,9 +490,9 @@ function decideRound() {
   const margin = top - (scored[leaders.length]?.total ?? 0);
   const kind = leaders.length > 1 ? 'tie'
     : margin >= 25 ? 'blowout' : margin >= 12 ? 'clear' : margin >= 4 ? 'solid' : 'close';
-  let text = pickOne(PHRASES[kind]).replace('{n}', joinNames(leaders.map((s) => s.name)));
-  if (top >= 90) text += ' 🎭 Oscar-worthy!';
-  else if (top < 30) text += ' (The judge is still waiting for someone to really ham it up!)';
+  let text = pickOne(PHRASES[kind]).replaceAll('{n}', joinNames(leaders.map((s) => s.name)));
+  if (top >= 90) text += ` ${pickOne(TOP_SCORE_TAGS)}`;
+  else if (top < 30) text += ` ${pickOne(LOW_SCORE_TAGS)}`;
   return { winners: leaders.map((s) => s.i), text, kind };
 }
 
@@ -328,82 +501,180 @@ function decideRound() {
 function showResults() {
   tallied = false;
   outcome = null;
-  $('results-title').textContent = `Round ${round} results`;
+  reveal = 'hidden';
+  celebrated = '';
+  $('results-title').textContent = `Round ${round} of ${totalRounds} · results`;
   $('banner').hidden = true;
+  $('suspense').hidden = true;
   show('results');
   renderResults();
 }
 
-function bar(label, v) {
-  if (v == null) return '';
-  return `<span>${label}</span><div class="track"><div class="fill" style="width:${v * 10}%"></div></div><span>${v}/10</span>`;
+// Replay a take with one button: "Hear it again" plays it, pressing again stops it.
+// Only one take plays at a time.
+const HEAR_LABEL = '<span aria-hidden="true">🔊</span> Hear it again';
+let replayAudio = null;
+let replayBtn = null;
+
+function stopReplay() {
+  replayAudio?.pause();
+  replayAudio = null;
+  if (replayBtn) {
+    replayBtn.classList.remove('playing');
+    replayBtn.innerHTML = HEAR_LABEL;
+    replayBtn = null;
+  }
 }
 
-function renderResults() {
+function hearButton(url) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hear';
+  btn.innerHTML = HEAR_LABEL;
+  btn.onclick = () => {
+    const wasPlaying = replayBtn === btn;
+    stopReplay();
+    if (wasPlaying) return;
+    const audio = new Audio(url);
+    replayAudio = audio;
+    replayBtn = btn;
+    btn.classList.add('playing');
+    btn.innerHTML = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span> Stop';
+    audio.onended = () => replayAudio === audio && stopReplay();
+    audio.play().catch(() => replayAudio === audio && stopReplay());
+  };
+  return btn;
+}
+
+function bar(label, v) {
+  if (v == null) return '';
+  return `<span>${label}</span><div class="track"><div class="fill" style="--w:${v * 10}%"></div></div><span>${v}/10</span>`;
+}
+
+function renderResults(animate = false) {
+  stopReplay(); // the cards are rebuilt, so their buttons are about to go away
   const settled = takes.every((t) => t.result || t.error);
   if (settled && !outcome) outcome = decideRound();
-  const order = players.map((p, i) => i);
-  if (settled) order.sort((a, b) => (takes[b].result?.total ?? -1) - (takes[a].result?.total ?? -1));
+
+  // Once everyone is judged, hold a beat of suspense before the reveal.
+  if (settled && reveal === 'hidden') {
+    reveal = 'suspense';
+    setTimeout(() => {
+      reveal = 'shown';
+      renderResults(true);
+    }, calm() ? 500 : 1700);
+  }
+  const shown = reveal === 'shown' && settled; // a retried take hides results until it is judged again
+
+  const cardOrder = [...order];
+  if (shown) cardOrder.sort((a, b) => (takes[b].result?.total ?? -1) - (takes[a].result?.total ?? -1));
 
   const cards = $('result-cards');
   cards.innerHTML = '';
-  for (const i of order) {
+  cards.hidden = reveal === 'suspense';
+  cardOrder.forEach((i, pos) => {
     const p = players[i];
     const t = takes[i];
     const r = t.result;
     const el = document.createElement('div');
     el.className = 'card result';
-    if (!settled) {
+    if (animate) {
+      el.classList.add('enter');
+      el.style.setProperty('--d', `${pos * 140}ms`);
+    }
+    if (!shown) {
       // Nothing is revealed until every take has been judged.
-      const status = r || t.error ? '✓ judged, waiting for the others' : 'judging…';
-      el.innerHTML = `<h3><span>${esc(p.name)}</span><span class="muted">${status}</span></h3>`;
+      const done = r || t.error;
+      el.innerHTML = `<div class="head">${avatar(i, 'lg')}<span class="pname">${esc(p.name)}</span>
+        <span class="status ${done ? 'ok' : ''}">${done ? '✓ judged' : 'judging…'}</span></div>`;
     } else if (r) {
       const won = outcome.winners.includes(i);
       const showVerdict = won || (players.length === 1 && outcome.text);
       if (won) el.classList.add('win');
       const label = KIND_LABELS[t.prompt.manner?.kind] || 'Mood';
       el.innerHTML = `
-        ${showVerdict ? `<p class="verdict ${outcome.kind}">${esc(outcome.text)}</p>` : ''}
-        <h3><span>${esc(p.name)}</span><span class="total">${r.total} pts</span></h3>
-        <p class="muted">Sounded like ${esc(r.soundedLike)}</p>
+        ${won ? `<span class="ribbon">${players.length > 1 ? '🏆 Round winner' : '🌟 Great take'}</span>` : ''}
+        ${showVerdict ? `<p class="verdict">${esc(outcome.text)}</p>` : ''}
+        <div class="head">${avatar(i, 'lg')}<span class="pname">${esc(p.name)}${won && players.length > 1 ? '<span class="trophy-pop">+1 🏆</span>' : ''}</span>
+          <span class="total"><b>${r.total}</b><small>pts</small></span></div>
+        <p class="sounded muted">Sounded like ${esc(r.soundedLike)}</p>
         <div class="bars">${bar(label, r.manner)}${bar('Character', r.character)}${bar('Line', r.line)}${bar('Flair', r.flair)}</div>
         <p>${esc(r.comment)}</p>
         <p class="muted">Tip: ${esc(r.tip)}</p>
         <p class="muted">Heard: “${esc(r.heard)}”</p>`;
+      if (animate) countUp(el.querySelector('.total b'), r.total, pos * 140 + 150);
     } else {
-      el.innerHTML = `<h3><span>${esc(p.name)}</span></h3><p class="msg">The judge had trouble: ${esc(t.error)}</p>
+      el.innerHTML = `<div class="head">${avatar(i, 'lg')}<span class="pname">${esc(p.name)}</span></div>
+        <p class="msg">The judge had trouble: ${esc(t.error)}</p>
         <div class="row"><button data-act="retry">Try judging again</button></div>`;
       el.querySelector('[data-act=retry]').onclick = () => { t.error = null; outcome = null; renderResults(); judge(t); };
     }
-    const audio = document.createElement('audio');
-    audio.controls = true;
-    audio.src = t.url;
-    el.appendChild(audio);
+    if (shown) el.appendChild(hearButton(t.url));
     cards.appendChild(el);
-  }
+  });
 
+  $('suspense').hidden = reveal !== 'suspense';
   $('waiting').hidden = settled;
-  renderBoard();
+  renderBoard(shown);
+  renderNextOrder(shown);
   $('next').textContent = round >= totalRounds ? 'Final scores' : 'Next round';
-  $('next').disabled = !settled;
+  $('next').disabled = !shown;
+
+  if (shown && outcome.winners.length) {
+    const key = outcome.winners.join(',');
+    if (key !== celebrated) {
+      celebrated = key;
+      setTimeout(() => {
+        confetti(outcome.kind === 'blowout' ? 1.3 : 1);
+        fanfare();
+      }, animate ? 250 : 0);
+    }
+  }
 }
 
-// Standings including this round once it is revealed. Ranked by total score, then wins.
-function standings() {
-  const pending = !tallied && outcome != null;
-  return players
-    .map((p, i) => ({
+// Each player's totals, including this round once it is revealed but not yet tallied.
+function projected(includeRound) {
+  const pending = includeRound && !tallied && outcome != null;
+  return players.map((p, i) => {
+    const won = pending && players.length > 1 && outcome.winners.includes(i);
+    return {
+      i,
       name: p.name,
       score: p.score + (pending ? takes[i]?.result?.total ?? 0 : 0),
-      wins: p.wins + (pending && players.length > 1 && outcome.winners.includes(i) ? 1 : 0),
-    }))
-    .sort((a, b) => b.score - a.score || b.wins - a.wins);
+      wins: p.wins + (won ? 1 : 0),
+      lastWin: won ? round : p.lastWin,
+    };
+  });
 }
 
-function renderBoard() {
+// Ranked by total score, then wins.
+function standings(includeRound = true) {
+  return projected(includeRound).sort((a, b) => b.score - a.score || b.wins - a.wins);
+}
+
+function renderBoard(includeRound = true, final = false) {
   const multi = players.length > 1;
-  const rows = standings().map((r) => `<tr><td>${esc(r.name)}</td>${multi ? `<td>${r.wins}</td>` : ''}<td>${r.score}</td></tr>`);
-  $('board').innerHTML = `<thead><tr><th>Player</th>${multi ? '<th>Wins</th>' : ''}<th>Total score</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+  const ranked = standings(includeRound);
+  const medals = ['🥇', '🥈', '🥉'];
+  let rank = 0;
+  const rows = ranked.map((r, k) => {
+    if (k === 0 || r.score !== ranked[k - 1].score) rank = k + 1;
+    const lead = multi && r.score > 0 && r.score === ranked[0].score;
+    const mark = final && multi ? (medals[rank - 1] || rank) : rank;
+    return `<tr class="${lead ? 'lead' : ''}"><td class="rank">${mark}</td>
+      <td><span class="who">${avatar(r.i)}${esc(r.name)}</span></td>
+      ${multi ? `<td class="trophies">${trophies(r.wins) || '<span class="muted">–</span>'}</td>` : ''}
+      <td class="num">${r.score}</td></tr>`;
+  });
+  $('board').innerHTML = `<thead><tr><th></th><th>Player</th>${multi ? '<th>Round wins</th>' : ''}<th class="num">Score</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+}
+
+function renderNextOrder(shown) {
+  const el = $('next-order');
+  el.hidden = !shown || players.length < 2 || round >= totalRounds;
+  if (el.hidden) return;
+  const next = turnOrder(projected(true)).map((i) => `<b>${esc(players[i].name)}</b>`);
+  el.innerHTML = `Next round's order: ${next.join(' → ')}`;
 }
 
 $('next').onclick = () => {
@@ -414,7 +685,10 @@ $('next').onclick = () => {
   if (!tallied) {
     players.forEach((p, i) => {
       p.score += takes[i]?.result?.total ?? 0;
-      if (players.length > 1 && outcome?.winners.includes(i)) p.wins += 1;
+      if (players.length > 1 && outcome?.winners.includes(i)) {
+        p.wins += 1;
+        p.lastWin = round;
+      }
     });
     tallied = true;
   }
@@ -422,25 +696,40 @@ $('next').onclick = () => {
     startRound();
     return;
   }
-  const ranked = standings();
+  showFinal();
+};
+
+function showFinal() {
+  stopReplay();
+  const ranked = standings(false);
   const champs = ranked.filter((r) => r.score === ranked[0].score);
   const mostWins = Math.max(...players.map((p) => p.wins));
   const winRecord = players.filter((p) => p.wins === mostWins).map((p) => p.name);
   $('results-title').textContent = 'Final scores';
   const banner = $('banner');
-  banner.hidden = false;
-  banner.className = 'banner blowout';
+  let champ, sub = '';
   if (players.length === 1) {
-    banner.textContent = `${ranked[0].score} points in ${totalRounds} rounds!`;
+    champ = `${ranked[0].score} points!`;
+    sub = `across ${totalRounds} round${totalRounds > 1 ? 's' : ''}`;
   } else {
-    banner.textContent = champs.length > 1
-      ? `🏆 It's a tie! ${joinNames(champs.map((c) => c.name))} share the crown!`
-      : `🏆 ${champs[0].name} is the champion!`;
-    if (mostWins > 0) banner.textContent += ` Most round wins: ${joinNames(winRecord)} (${mostWins}).`;
+    champ = champs.length > 1
+      ? `${joinNames(champs.map((c) => c.name))} share the crown!`
+      : `${champs[0].name} is the champion!`;
+    sub = `${ranked[0].score} points`;
+    if (mostWins > 0) sub += ` · Most round wins: ${joinNames(winRecord)} (${mostWins})`;
   }
+  banner.innerHTML = `<span class="crown" aria-hidden="true">👑</span>
+    <div class="champ">${esc(champ)}</div><p class="sub">${esc(sub)}</p>`;
+  banner.hidden = false;
+  replay(banner, 'show');
   $('waiting').hidden = true;
+  $('suspense').hidden = true;
   $('result-cards').innerHTML = '';
-  renderBoard();
+  $('next-order').hidden = true;
+  renderBoard(false, true);
   $('next').textContent = 'Play again';
   $('next').disabled = false;
-};
+  window.scrollTo({ top: 0 });
+  setTimeout(() => { confetti(1.6); fanfare(true); }, 200);
+  setTimeout(() => confetti(1), 1300);
+}
