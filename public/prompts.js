@@ -20,18 +20,17 @@ export const MOODS = {
     'proud', 'shy', 'giggly', 'cranky', 'worried', 'brave', 'sneaky', 'cheerful', 'impatient',
     'confused', 'exhausted', 'overjoyed', 'amazed', 'nervous', 'angry',
   ],
+  // Medium moods all have a sound you can hear: a gasp, a sigh, a wail, a giggle, a growl.
   medium: [
-    'terrified', 'anxious', 'jittery', 'panicked', 'frantic', 'timid', 'spooked', 'heartbroken',
-    'gloomy', 'mopey', 'lonely', 'disappointed', 'homesick', 'ecstatic', 'gleeful', 'triumphant',
-    'relieved', 'delighted', 'playful', 'bubbly', 'tender', 'grateful', 'sympathetic',
-    'irritated', 'annoyed', 'frustrated', 'furious', 'exasperated', 'huffy', 'stubborn', 'sulky',
-    'astonished', 'shocked', 'flabbergasted', 'startled', 'awestruck', 'grossed-out', 'snooty',
-    'unimpressed', 'offended', 'eager', 'hopeful', 'curious', 'restless', 'embarrassed',
-    'bashful', 'sheepish', 'guilty', 'boastful', 'flustered', 'suspicious', 'puzzled',
-    'skeptical', 'distracted', 'determined', 'mischievous', 'scheming', 'drowsy', 'lazy', 'hyper',
-    'frazzled', 'calm', 'peaceful', 'bossy', 'polite', 'dramatic', 'pompous', 'fussy',
-    'apologetic', 'defiant', 'mysterious', 'heroic', 'bold', 'confident',
+    'terrified', 'jittery', 'panicked', 'frantic', 'timid', 'spooked', 'heartbroken', 'gloomy',
+    'mopey', 'disappointed', 'ecstatic', 'gleeful', 'triumphant', 'relieved', 'delighted',
+    'playful', 'bubbly', 'irritated', 'annoyed', 'frustrated', 'furious', 'exasperated', 'huffy',
+    'sulky', 'astonished', 'shocked', 'flabbergasted', 'startled', 'awestruck', 'grossed-out',
+    'snooty', 'offended', 'eager', 'embarrassed', 'bashful', 'boastful', 'flustered',
+    'suspicious', 'puzzled', 'determined', 'mischievous', 'scheming', 'drowsy', 'lazy', 'hyper',
+    'frazzled', 'bossy', 'dramatic', 'mysterious', 'heroic', 'bold',
   ],
+  // Actor moods are subtle: close to a normal speaking voice, so nuance decides the score.
   actor: [
     'wistful', 'melancholy', 'bittersweet', 'nostalgic', 'mournful', 'sorrowful', 'serene',
     'content', 'blissful', 'smug', 'sarcastic', 'disdainful', 'scornful', 'indignant', 'bitter',
@@ -40,6 +39,10 @@ export const MOODS = {
     'protective', 'compassionate', 'absent-minded', 'thoughtful', 'sly', 'theatrical', 'grand',
     'humble', 'resolute', 'valiant', 'swaggering', 'prissy', 'sluggish', 'revolted', 'jubilant',
     'giddy', 'outraged', 'unbothered', 'long-suffering', 'world-weary', 'starstruck',
+    'anxious', 'lonely', 'homesick', 'tender', 'grateful', 'sympathetic', 'stubborn',
+    'unimpressed', 'hopeful', 'curious', 'restless', 'sheepish', 'guilty', 'skeptical',
+    'distracted', 'calm', 'peaceful', 'polite', 'pompous', 'fussy', 'apologetic', 'defiant',
+    'confident',
   ],
 };
 
